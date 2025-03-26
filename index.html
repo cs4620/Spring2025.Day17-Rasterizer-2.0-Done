@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<!-- Significant modification of this tutorial: https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Tutorial/Getting_started_with_WebGL -->
+<html>
+
+<head>
+  <title>WebGL - Rasterizer 2.0 Example</title>
+</head>
+
+<body>
+
+  <canvas id="canv"></canvas> <!-- The only element we need. This is where we draw. -->
+
+  <script src="./vertexShader.js"></script>
+  <script src="./fragmentShader.js"></script>
+
+  <script>
+
+    //Get and setup the canvas element and drawing context
+
+    let canvas = document.querySelector("#canv")  //Get a reference to the canvas element
+    canvas.width = 640                            //Set the width the canvas element. If you skip this, it will be fuzzy
+    canvas.height = 640                           //Set the height of the canvas element.
+    let gl = canvas.getContext("webgl");          //Get the 3d context of the canvas.
+
+    //Create the matrices we will use
+
+    let projectionMatrix = new Float32Array(16);  //Create the projection matrix. We can't use [] since we need a Float32Array
+    projectionMatrix[0] = 1.0
+    projectionMatrix[5] = 1.0
+    projectionMatrix[10] = 0
+    projectionMatrix[15] = 0.0
+    projectionMatrix[11] = 1.0
+
+    let modelViewMatrix = new Float32Array(16);   //Create the model view matrix
+    modelViewMatrix[0] = 1.0
+    modelViewMatrix[5] = 1.0
+    modelViewMatrix[10] = 1.0
+    modelViewMatrix[15] = 1.0
+    modelViewMatrix[14] = 5;                     //Z offset so we can see the triangle
+
+    //Setup the positions of the triangle's vertices
+
+    let positions = //The positions of the points on the triangle 
+    [  
+      1.0, 1.0, 0,   
+      -1.0, 1.0, 0,
+      1.0, -1.0, 0,
+      -1, -1, -0,
+      1.0, 1.0, -1,   
+      -1.0, 1.0, -1,
+      1.0, -1.0, -1,
+      -1, -1, -1,
+    ];
+
+    let normals = 
+    [ 
+      0, 0, -1.,
+      0, 0, -1.,
+      0, 0, -1., 
+      0, 0, -1.,
+      0, 0, 1.,
+      0, 0, 1.,
+      0, 0, 1., 
+      0, 0, 1.,
+    ]
+
+    let uvs = [
+      0,0,
+      1.,0,
+      0,1.,
+      1.,1.,
+      0,0,
+      1.,0,
+      0,1.,
+      1.,1.,
+    ]
+
+    //Create a program on the GPU that has a fragment and vertex shader
+
+    let shader = gl.createProgram();                                               //Create a program that we are going to use on the GPU
+    gl.attachShader(shader, loadShader(gl, gl.VERTEX_SHADER, vertexShader));       //Assign the vertex shader code to a memory slot on the GPU
+    gl.attachShader(shader, loadShader(gl, gl.FRAGMENT_SHADER, fragmentShader));   //Assign the vertex shader code to a memory slot on the GPU
+    gl.linkProgram(shader);                                                        //Do the compiling and linking on the GPU
+    if (!gl.getProgramParameter(shader, gl.LINK_STATUS)) { throw new Error(gl.getError()); }    //Do some error checking
+    gl.useProgram(shader);                                                         //Tell the GPU that this is the program to use
+
+    // Create a memory slot for the vertices
+    
+    gl.bindBuffer(gl.ARRAY_BUFFER,  gl.createBuffer());                              //Create a new buffer on the GPU and make it an array buffer
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);     //Put the positions into this new buffer
+
+    //Attach the per-frame information
+
+    let vertexPosition = gl.getAttribLocation(shader, "aPosition")                                     //Create a new variable called position that is the location attribute
+    gl.vertexAttribPointer(vertexPosition, 3, gl.FLOAT, false, 0, 0);                                 //Create a vertex attribute that says they will be vec3s
+    gl.enableVertexAttribArray(vertexPosition);                             //Enable the vertex attribute
+    
+    gl.bindBuffer(gl.ARRAY_BUFFER,  gl.createBuffer());                              //Create a new buffer on the GPU and make it an array buffer
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);     //Put the positions into this new buffer
+
+    let vertexNormal = gl.getAttribLocation(shader, "aNormal")                                     //Create a new variable called position that is the location attribute
+    gl.vertexAttribPointer(vertexNormal, 3, gl.FLOAT, false, 0, 0);                                 //Create a vertex attribute that says they will be vec3s
+    gl.enableVertexAttribArray(vertexNormal);                             //Enable the vertex attribute
+    
+
+    gl.bindBuffer(gl.ARRAY_BUFFER,  gl.createBuffer());                              //Create a new buffer on the GPU and make it an array buffer
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.STATIC_DRAW);     //Put the positions into this new buffer
+
+    let vertexUV = gl.getAttribLocation(shader, "aUV")                                     //Create a new variable called position that is the location attribute
+    gl.vertexAttribPointer(vertexUV, 2, gl.FLOAT, false, 0, 0);                                 //Create a vertex attribute that says they will be vec3s
+    gl.enableVertexAttribArray(vertexUV);                             //Enable the vertex attribute
+    
+    
+    
+    gl.uniformMatrix4fv(gl.getUniformLocation(shader, "uProjectionMatrix"), false, projectionMatrix);  //Create a uniform on the GPU called projectionMatrix
+    
+    //Our draw 
+
+    let positionIndices = [
+      0, 1, 2, 
+      1, 2, 3,
+      4, 5, 6, 
+      5, 6, 7,
+    ];  
+    
+    
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl.createBuffer());                        //Create a new array buffer for indices
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(positionIndices), gl.STATIC_DRAW)  //Bind the index data to the new buffer
+    
+    
+    //Function to compile the shaders
+    
+    function loadShader(gl, type, source) {
+      let shader = gl.createShader(type);   //Allocate memory for the type of shader
+      gl.shaderSource(shader, source);      //Assign the code as a string
+      gl.compileShader(shader);             //Tell the GPU to compile the shader
+      let compiled = gl.getShaderParameter(shader, gl.COMPILE_STATUS)
+      let compilationLog = gl.getShaderInfoLog(shader)
+      console.log(compiled, compilationLog)
+      return shader;
+    }
+    
+    let temp = 0
+    function render(){
+      temp += .01
+      modelViewMatrix[13] = 2*Math.sin(temp);                     //Z offset so we can see the triangle
+
+      gl.uniformMatrix4fv(gl.getUniformLocation(shader, "uModelViewMatrix"), false, modelViewMatrix);    //Create a uniform on the GPU called modelViewMatrix
+      gl.uniform1f(gl.getUniformLocation(shader, "uTime"), temp)
+      
+       gl.clearColor(0, 0, 0, 1.)
+       gl.clearDepth(1.0)
+       gl.enable(gl.DEPTH_TEST)
+       gl.depthFunc(gl.LEQUAL)
+       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+      gl.drawElements(gl.TRIANGLES, 12, gl.UNSIGNED_SHORT, 0)                            //Draw 3 vertices as distinct triangles
+      
+    }
+
+    setInterval(render, 10)
+
+  </script>
+</body>
+
+</html>
