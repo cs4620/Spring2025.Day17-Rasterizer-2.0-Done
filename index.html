@@ -27,7 +27,8 @@
     let projectionMatrix = new Float32Array(16);  //Create the projection matrix. We can't use [] since we need a Float32Array
     projectionMatrix[0] = 1.0
     projectionMatrix[5] = 1.0
-    projectionMatrix[10] = 0
+    projectionMatrix[10] = 1.0 //Technically (far+near)/(far-near)
+    projectionMatrix[14] = -2  //Technically 2*(far+near)/(far-near)
     projectionMatrix[15] = 0.0
     projectionMatrix[11] = 1.0
 
@@ -42,8 +43,8 @@
 
     let positions = //The positions of the points on the triangle 
     [  
-      1.0, 1.0, 0,   
-      -1.0, 1.0, 0,
+      1.0, 1.0, -2,   
+      -1.0, 1.0, -2,
       1.0, -1.0, 0,
       -1, -1, -0,
       1.0, 1.0, -1,   
